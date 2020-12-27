@@ -14,7 +14,8 @@ export Client,
 	get_contest_results_count,
 	get_contest_results,
 	get_problem_html,
-	get_problem_pdf
+	get_problem_pdf,
+	make_submit
 
 import HTTP, Gumbo
 using HTTP: Cookie
@@ -76,7 +77,7 @@ end
 
 const URL_BASE = "https://satori.tcs.uj.edu.pl"
 
-function query_satori(client:: Client, method, path, headers, body):: HTTP.Response
+function query_satori(client:: Client, method, path, headers, body; kws...):: HTTP.Response
 	local hdrs = Dict()
 	body === nothing && (hdrs["Content-Length"] = 0)
 	local resp = HTTP.request(
@@ -87,7 +88,8 @@ function query_satori(client:: Client, method, path, headers, body):: HTTP.Respo
 		redirect = false,
 		cookies = true,
 		cookiejar = client.cookiejar,
-		status_exception = false
+		#status_exception = false,
+		kws...
 	)
 	resp
 end
@@ -163,7 +165,8 @@ function get_contests(client:: Client):: Vector{Contest}
 	contests
 end
 
-get_contest_news(client:: Client, contest:: Contest):: Vector{ContestNews} = get_contest_news(client, contest.id)
+get_contest_news(client:: Client, contest:: Contest):: Vector{ContestNews} =
+	get_contest_news(client, contest.id)
 
 function get_contest_news(client:: Client, contest_id:: Int):: Vector{ContestNews}
 	local resp = query_satori(
@@ -188,7 +191,8 @@ function get_contest_news(client:: Client, contest_id:: Int):: Vector{ContestNew
 	contest_news
 end
 
-get_contest_problems(client:: Client, contest:: Contest):: Vector{Problem} = get_contest_problems(client, contest.id)
+get_contest_problems(client:: Client, contest:: Contest):: Vector{Problem} =
+	get_contest_problems(client, contest.id)
 
 function get_contest_problems(client:: Client, contest_id:: Int):: Vector{Problem}
 	local resp = query_satori(
@@ -224,7 +228,8 @@ function get_contest_problems(client:: Client, contest_id:: Int):: Vector{Proble
 	problems
 end
 
-get_contest_results_count(client:: Client, contest:: Contest):: Integer = get_contest_results_count(client, contest.id)
+get_contest_results_count(client:: Client, contest:: Contest):: Integer =
+	get_contest_results_count(client, contest.id)
 
 function get_contest_results_count(client:: Client, contest_id:: Int):: Integer
 	local resp = query_satori(
@@ -236,7 +241,7 @@ function get_contest_results_count(client:: Client, contest_id:: Int):: Integer
 	)
 	
 	local pages_div = parsehtml(String(resp.body)).root[2][1][2][1][1][1][2][1][4]
-	return pages_div.children |> length
+	pages_div.children |> length
 end
 
 get_contest_results(
@@ -280,7 +285,8 @@ function get_contest_results(
 	results
 end
 
-get_problem_html(client:: Client, problem:: Problem):: AbstractString = get_problem_html(client, problem.contest_id, problem.id)
+get_problem_html(client:: Client, problem:: Problem):: AbstractString =
+	get_problem_html(client, problem.contest_id, problem.id)
 
 function get_problem_html(client:: Client, contest_id:: Int, problem_id:: Int):: AbstractString
 	local resp = query_satori(
@@ -296,10 +302,11 @@ function get_problem_html(client:: Client, contest_id:: Int, problem_id:: Int)::
 	)
 	
 	local elem = parsehtml(String(resp.body)).root[2][1][2][1][1][1][2][1][2]
-	return elem |> string
+	elem |> string
 end
 
-get_problem_pdf(client:: Client, problem:: Problem):: Vector{UInt8} = get_problem_pdf(client, problem.id)
+get_problem_pdf(client:: Client, problem:: Problem):: Vector{UInt8} =
+	get_problem_pdf(client, problem.id)
 
 function get_problem_pdf(client:: Client, problem_id:: Int):: Vector{UInt8}
 	local resp = query_satori(
@@ -313,7 +320,38 @@ function get_problem_pdf(client:: Client, problem_id:: Int):: Vector{UInt8}
 		nothing
 	)
 	
-	return resp.body
+	resp.body
+end
+
+make_submit(client:: Client, problem:: Problem, args...) =
+	make_submit(client, problem.contest_id, problem.id, args...)
+
+make_submit(client:: Client, contest_id:: Int, problem_id:: Int, filepath:: AbstractString) =
+	make_submit(client, contest_id, problem_id, read(filepath, String), basename(filepath))
+
+function make_submit(
+	client:: Client,
+	contest_id:: Int,
+	problem_id:: Int,
+	code:: AbstractString,
+	filename:: AbstractString
+)
+	#local boundary = "--ld123--" * string(rand(1_000_000:1_000_000_000))
+	local boundary = "---------------------------202420241229766659513730330414"
+	local resp = query_satori(
+		client,
+		:POST,
+		"/contest/$contest_id/submit",
+		["Content-Type" => "multipart/form-data; boundary=$boundary"],
+			"--$boundary\r\n" *
+			"Content-Disposition: form-data; name=\"problem\"\r\n\r\n" *
+			"$(string(problem_id))\r\n" *
+			"--$boundary\r\n" *
+			"Content-Disposition: form-data; name=\"codefile\"; filename=\"$filename\"\r\n" *
+			"Content-Type: text/plain\r\n\r\n" *
+			"$code\r\n" *
+			"--$boundary--\r\n"
+	)
 end
 
 end # module
