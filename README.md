@@ -17,6 +17,13 @@ Right now you can run it (if you have Julia installed) by, from the repo root, r
 This is very crude since that recompiles the whole package every time, but it's how I'm testing it at the moment.
 Generating a sysimage could help and be a good idea when testing, but it's far from being perfect.
 
+Also, first you should launch the Julia REPL in the repo root and
+```
+] activate .
+] resolve
+] instantiate
+```
+
 # Usage
 **`satori-cli [options] <command> [cmdargs]`**  
 Options:

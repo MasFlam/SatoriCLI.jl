@@ -34,7 +34,7 @@
   - ~~retrieving contest news~~
   - displaying the HTML
 * Problems
-  - retrieving & displaying problem list
+  - ~~retrieving & displaying problem list~~
   - retrieving & displaying problem content
     + PDF (chosing the program; xdg-open)
     + HTML (~~S~~pain)
