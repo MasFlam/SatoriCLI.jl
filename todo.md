@@ -12,8 +12,8 @@
 * ~~Problem content~~ **Done! Will probably poke around this though**
   - ~~`get_problem_pdf(client, problem_id)`~~
   - ~~`get_problem_html(client, problem_id)`~~
-* Submitting
-  - `submit(client, contest_id, problem_id, code, filename)`
+* ~~Submitting~~ **Done!**
+  - ~~`submit(client, contest_id, problem_id, code, filename)`~~
 * User profile
   - `UserProfile`
   - `first_name(profile)`
@@ -39,7 +39,7 @@
     + PDF (chosing the program; xdg-open)
     + HTML (~~S~~pain)
 * Results
-* Submitting
+* ~~Submitting~~ **Done!**
 * User profile
 * Rankings
 * Cache data for use across calls

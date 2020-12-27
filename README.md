@@ -36,14 +36,16 @@ Commands: (can be shortened to any of their prefixes)
 * `contests` - Retrieve contests list
 * `news <contest>` - Retrieve contest news
 * `problems <contest>` - Retrieve contest problem list
+* `submit <contest> : <problem> : <filepath>` - Submit the file under `<filepath>` to a problem
 
 `<contest>` can be either a contest id, or one or more strings that should all case-insensitively be present
-in the wanted contest name or description.
+in the wanted contest name or description. Same is with `<problem>`.
 
 # Features
 The following features are fully implemented:
 * Login and saving login credentials
 * Retrieving and displaying contest list
+* Submitting to problems
 
 The following are at least work-in-progress:
 * Retrieving contest news
@@ -52,7 +54,6 @@ The following are at least work-in-progress:
 
 And the following are planned:
 * Caching **- much wanted asap**
-* Submitting to problems
 * User profile
 * Retrieving and displaying rankings
 * Applying to contests

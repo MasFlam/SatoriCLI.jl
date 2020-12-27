@@ -4,8 +4,6 @@ using Dates: format
 import Gumbo
 include("Satori.jl"); using .Satori
 
-const USAGE = "satori [options] <command> [args]"
-
 mutable struct Options
 	color:: Bool
 	cache:: Bool
@@ -14,6 +12,38 @@ end
 opts = Options(stdout isa Base.TTY, true)
 
 function julia_main():: Cint
+	try
+		main()
+	catch e
+		if !isa(e, Tuple{Symbol, Union{AbstractString, Nothing}})
+			println(stderr, "Unknown error" |> red)
+			rethrow()
+		elseif e[1] == :unknown_option
+			println(stderr, red("Unknown option:") * ' ' * yellow(e[2]))
+		elseif e[1] == :no_cmd
+			println(stderr, "No command given" |> red)
+		elseif e[1] == :unknown_cmd
+			println(stderr, red("Unknown command:") * ' ' * yellow(e[2]))
+		elseif e[1] == :cmd_usage
+			println(stderr, red("Usage:") * ' ' * yellow("satori-cli [options] " * e[2]))
+		elseif e[1] == :submit_file_not_found
+			println(stderr, red("File not found:") * ' ' * yellow(e[2]))
+		else
+			println(stderr, "Unknown error" |> red)
+			rethrow()
+		end
+		return 2
+	end
+	return 0
+end
+
+unknown_option_error(option:: AbstractString) = throw((:unknown_option, option))
+no_cmd_error() = throw((:no_cmd, nothing))
+unknown_cmd_error(cmd:: AbstractString) = throw((:unknown_cmd, cmd))
+cmd_usage_error(msg:: AbstractString) = throw((:cmd_usage, msg))
+submit_file_not_found_error(filepath:: AbstractString) = throw((:submit_file_not_found, filepath))
+
+function main()
 	global client = nothing
 	global configdir = nothing
 	global cachedir = nothing
@@ -39,9 +69,9 @@ function julia_main():: Cint
 		news_cmd(cmdargs)
 	elseif cmd == :problems
 		problems_cmd(cmdargs)
+	elseif cmd == :submit
+		submit_cmd(cmdargs)
 	end
-	
-	return 0
 end
 
 function contests_cmd(args:: AbstractVector{String})
@@ -57,13 +87,14 @@ function contests_cmd(args:: AbstractVector{String})
 	elseif args[1] == "other"
 		filter!(c -> !c.joined, contests)
 	else
-		usage_exit()
+		cmd_usage_error("contests (joined|pending|other)")
 	end
 	
 	for con in contests
 		local name = con.name
 		local desc = con.description
 		
+		print(rpad(con.id, 8) |> blue)
 		print(name |> cyan)
 		desc |> length != 0 && print("  -  $desc")
 		if con.pending
@@ -78,7 +109,7 @@ end
 function news_cmd(args:: AbstractVector{String})
 	client_login(client)
 	local contest_id, idx = parse_contest(args)
-	contest_id == -1 && usage_exit()
+	contest_id == -1 && cmd_usage_error("news <contest>")
 	local news = get_contest_news(client, contest_id)
 	
 	for n in news
@@ -94,10 +125,10 @@ end
 function problems_cmd(args:: AbstractVector{String})
 	client_login(client)
 	local contest_id, idx = parse_contest(args)
-	contest_id == -1 && usage_exit()
+	contest_id == -1 && cmd_usage_error("problems <contest>")
 	local problems = get_contest_problems(client, contest_id)
 	
-	local maxcodelen = maximum(p -> p.name |> length, problems)
+	local maxcodelen = maximum(p -> p.code |> length, problems) + 2
 	local prev_series_name = nothing
 	for prob in problems
 		if prob.series_name != prev_series_name
@@ -114,19 +145,34 @@ function problems_cmd(args:: AbstractVector{String})
 	end
 end
 
+function submit_cmd(args:: AbstractVector{String})
+	local errmsg = "submit <contest> : <problem> : <filepath>"
+	client_login(client)
+	
+	local contest_id, idx = parse_contest(args)
+	(contest_id == -1 || idx > length(args)) && cmd_usage_error(errmsg)
+	
+	local problem_id, idx_ = parse_problem(contest_id, args[idx+1:end])
+	idx += idx_
+	(problem_id == -1 || idx > length(args)-1) && cmd_usage_error(errmsg)
+	
+	local filepath = args[idx+1]
+	!isfile(filepath) && submit_file_not_found_error(filepath)
+	
+	make_submit(client, contest_id, problem_id, filepath)
+	
+	println("Submitted $filepath" |> green)
+end
+
 function command(idx:: Integer):: Symbol
 	# we know that this index exists, because of how options() behaves
 	local cmd = ARGS[idx]
 	startswith("contests", cmd) && return :contests
 	startswith("news", cmd) && return :news
 	startswith("problems", cmd) && return :problems
+	startswith("submit", cmd) && return :submit
 	# etc...
-	usage_exit()
-end
-
-function usage_exit()
-	println(stderr, "Usage: " * USAGE)
-	exit(2)
+	unknown_cmd_error(cmd)
 end
 
 function password_prompt():: String
@@ -148,7 +194,7 @@ function ask_credentials():: Tuple{String, String}
 	local login = readline()
 	print("Satori password: ")
 	local pass = password_prompt()
-	return login, pass
+	login, pass
 end
 
 function get_login_credentials():: Tuple{String, String}
@@ -167,13 +213,13 @@ function get_login_credentials():: Tuple{String, String}
 		user = arr[1]
 		pass = arr[2]
 	end
-	return user, pass
+	user, pass
 end
 
 # returns (contest id or -1 if no contest matched, possible next argument index)
 function parse_contest(args:: AbstractVector{String}):: Tuple{Int, Integer}
 	if args |> length == 0
-		usage_exit()
+		return -1, 0
 	elseif match(r"^\d+$"a, args[1]) !== nothing
 		return parse(Int, args[1]), 2
 	else
@@ -199,6 +245,36 @@ function parse_contest(args:: AbstractVector{String}):: Tuple{Int, Integer}
 	end
 end
 
+function parse_problem(contest_id:: Int, args:: AbstractVector{String}):: Tuple{Int, Integer}
+	if args |> length == 0
+		return -1, 0
+	elseif match(r"^\d+$"a, args[1]) !== nothing
+		return parse(Int, args[1]), 2
+	else
+		client_login(client)
+		local problems = get_contest_problems(client, contest_id)
+		local i = 0
+		for prob in problems
+			i = 0
+			local matched = 0
+			local lower_series = lowercase(prob.series_name)
+			local lower_name = lowercase(prob.name)
+			local lower_code = lowercase(prob.code)
+			for arg in args
+				i += 1
+				arg == ":" && (matched += 1; break)
+				local lower_arg = lowercase(arg)
+				local series_find = findfirst(lower_arg, lower_series)
+				local name_find = findfirst(lower_arg, lower_name)
+				local code_find = findfirst(lower_arg, lower_code)
+				(series_find !== nothing || name_find !== nothing || code_find !== nothing) && (matched += 1)
+			end
+			i == matched && return prob.id, i
+		end
+		return -1, i
+	end
+end
+
 # returns the index of the <command> (guarantees it's a valid index into ARGS)
 function options():: Integer
 	local i = 0
@@ -218,11 +294,11 @@ function options():: Integer
 		elseif arg == "-nocolor"
 			opts.color = false
 		else
-			usage_exit()
+			unknown_option_error(arg)
 		end
 	end
 	# if we get here that means no command was given
-	usage_exit()
+	no_cmd_error()
 end
 
 end # module
