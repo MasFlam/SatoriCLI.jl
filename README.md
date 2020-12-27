@@ -53,7 +53,7 @@ The following are at least work-in-progress:
 * Retrieving submits/results
 
 And the following are planned:
-* Caching **- much wanted asap**
+* Caching
 * User profile
 * Retrieving and displaying rankings
 * Applying to contests
@@ -62,4 +62,4 @@ See [`todo.md`](/todo.md) for details.
 
 # Contributing
 Contributions such as implementing new features, or finding ways to retrieve data faster are welcome.
-You can open an issues concerning the latter one. The code style is pretty much already visible.
+You can open an issue concerning the latter one. The code style is pretty much already visible too.
