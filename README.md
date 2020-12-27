@@ -25,26 +25,38 @@ Also, first you should launch the Julia REPL in the repo root and
 ```
 
 # Usage
-**`satori-cli [options] <command> [cmdargs]`**  
+**`satori-cli [options] <command> [cmdargs]`**
+
 Options:
 * `-color`/`-nocolor` - enable/disable colored output (default is `-color` if the output is a TTY)
 * `-cache`/`-nocache` - enable/disable caching of data (does nothing yet, since caching isn't implemented yet)
 * `-remember`/`-noremeber` - enable/disable *saving* the login credentials
 
+Commands: (can be shortened to any of their prefixes)
+* `contests` - Retrieve contests list
+* `news <contest>` - Retrieve contest news
+* `problems <contest>` - Retrieve contest problem list
+
+`<contest>` can be either a contest id, or one or more strings that should all case-insensitively be present
+in the wanted contest name or description.
+
 # Features
 The following features are fully implemented:
 * Login and saving login credentials
 * Retrieving and displaying contest list
+
 The following are at least work-in-progress:
 * Retrieving contest news
 * Retrieving problem contents
 * Retrieving submits/results
+
 And the following are planned:
 * Caching **- much wanted asap**
 * Submitting to problems
 * User profile
 * Retrieving and displaying rankings
 * Applying to contests
+
 See [`todo.md`](/todo.md) for details.
 
 # Contributing
