@@ -19,6 +19,7 @@ function julia_main():: Cint
 		if !isa(e, Tuple{Symbol, Union{AbstractString, Nothing}})
 			if e isa ErrorException && e.msg == "incorrect login credentials"
 				println("Incorrect login credentials" |> red)
+				return 1
 			else
 				println(stderr, "Unknown error" |> red)
 				rethrow()
