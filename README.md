@@ -39,6 +39,7 @@ Commands: (can be shortened to any of their prefixes)
 * `news <contest>` - Retrieve contest news
 * `problems <contest>` - Retrieve contest problem list
 * `submit <contest> : <problem> : <filepath>` - Submit the file under `<filepath>` to a problem
+* `profile` - See the user profile
 
 `<contest>` can be either a contest id, or one or more strings that should all case-insensitively be present
 in the wanted contest name or description. Same is with `<problem>`.
