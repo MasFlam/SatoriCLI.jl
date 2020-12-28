@@ -5,6 +5,7 @@ export Client,
 	ContestNews,
 	Problem,
 	Result,
+	UserProfile,
 	new_client,
 	client_login,
 	client_logout,
@@ -15,7 +16,8 @@ export Client,
 	get_contest_results,
 	get_problem_html,
 	get_problem_pdf,
-	make_submit
+	make_submit,
+	get_user_profile
 
 import HTTP, Gumbo
 using HTTP: Cookie
@@ -60,6 +62,13 @@ struct Result
 	problem_code:: AbstractString
 	datetime:: DateTime
 	status:: AbstractString
+end
+
+struct UserProfile
+	first_name:: AbstractString
+	last_name:: AbstractString
+	affiliation:: AbstractString
+	confirmed:: Bool
 end
 
 
@@ -367,6 +376,25 @@ function make_submit(
 			"$code\r\n" *
 			"--$boundary--\r\n"
 	)
+end
+
+function get_user_profile(client:: Client):: UserProfile
+	local resp = query_satori(
+		client,
+		:GET,
+		"/profile",
+		[],
+		nothing
+	)
+	
+	local tbody = parsehtml(String(resp.body)).root[2][1][2][1][1][1][2][1][2][1][1]
+	local first_name = tbody[1][2][1].attributes["value"]
+	local last_name = tbody[2][2][1].attributes["value"]
+	local confirmed = tbody[2][2].children |> length > 1
+	# why doesn't Gumbo.HTMLElement have lastindex()?
+	local affiliation = tbody[6][2][1].attributes["value"]
+	
+	UserProfile(first_name, last_name, affiliation, confirmed)
 end
 
 end # module

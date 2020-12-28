@@ -79,6 +79,8 @@ function main()
 		login_cmd(cmdargs)
 	elseif cmd == :forget
 		forget_cmd(cmdargs)
+	elseif cmd == :profile
+		profile_cmd(cmdargs)
 	end
 end
 
@@ -182,6 +184,16 @@ function forget_cmd(args:: AbstractVector{String})
 	println("Deleted the credentials file." |> green)
 end
 
+function profile_cmd(args:: AbstractVector{String})
+	login()
+	local profile = get_user_profile(client)
+	println(blue("Username:") * ' ' * cyan(client.username))
+	println(blue("First name:") * ' ' * cyan(profile.first_name))
+	println(blue("Last name:") * ' ' * cyan(profile.last_name))
+	println(blue("Affiliation:") * ' ' * cyan(profile.affiliation))
+	println(blue("Confirmed:") * ' ' * (profile.confirmed ? green("yes") : red("no")))
+end
+
 function command(idx:: Integer):: Symbol
 	# we know that this index exists, because of how options() behaves
 	local cmd = ARGS[idx]
@@ -191,6 +203,7 @@ function command(idx:: Integer):: Symbol
 	startswith("submit", cmd) && return :submit
 	startswith("login", cmd) && return :login
 	startswith("forget", cmd) && return :forget
+	startswith("profile", cmd) && return :profile
 	# etc...
 	unknown_cmd_error(cmd)
 end
@@ -200,14 +213,14 @@ function password_prompt():: String
 	return readline()
 end
 
-black(s):: AbstractString   = opts.color ? "\e[30m" * s * "\e[39m" : string(s)
-red(s):: AbstractString     = opts.color ? "\e[31m" * s * "\e[39m" : string(s)
-green(s):: AbstractString   = opts.color ? "\e[32m" * s * "\e[39m" : string(s)
-yellow(s):: AbstractString  = opts.color ? "\e[33m" * s * "\e[39m" : string(s)
-blue(s):: AbstractString    = opts.color ? "\e[34m" * s * "\e[39m" : string(s)
-magenta(s):: AbstractString = opts.color ? "\e[35m" * s * "\e[39m" : string(s)
-cyan(s):: AbstractString    = opts.color ? "\e[36m" * s * "\e[39m" : string(s)
-white(s):: AbstractString   = opts.color ? "\e[37m" * s * "\e[39m" : string(s)
+black(s):: AbstractString   = opts.color ? "\e[30m" * string(s) * "\e[39m" : string(s)
+red(s):: AbstractString     = opts.color ? "\e[31m" * string(s) * "\e[39m" : string(s)
+green(s):: AbstractString   = opts.color ? "\e[32m" * string(s) * "\e[39m" : string(s)
+yellow(s):: AbstractString  = opts.color ? "\e[33m" * string(s) * "\e[39m" : string(s)
+blue(s):: AbstractString    = opts.color ? "\e[34m" * string(s) * "\e[39m" : string(s)
+magenta(s):: AbstractString = opts.color ? "\e[35m" * string(s) * "\e[39m" : string(s)
+cyan(s):: AbstractString    = opts.color ? "\e[36m" * string(s) * "\e[39m" : string(s)
+white(s):: AbstractString   = opts.color ? "\e[37m" * string(s) * "\e[39m" : string(s)
 
 function login()
 	if client === nothing
