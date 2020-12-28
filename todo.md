@@ -14,12 +14,9 @@
   - ~~`get_problem_html(client, problem_id)`~~
 * ~~Submitting~~ **Done!**
   - ~~`submit(client, contest_id, problem_id, code, filename)`~~
-* User profile
-  - `UserProfile`
-  - `first_name(profile)`
-  - `last_name(profile)`
-  - `affiliation(profile)`
-  - `change_password(client[, old_password ], new_password)`
+* ~~User profile~~ **Done!**
+  - ~~`UserProfile`~~
+* `change_password(client[, old_password ], new_password)`
 * Rankings
   - `Ranking`
   - `get_contest_rankings(client, contest_id)`
@@ -40,7 +37,7 @@
     + HTML (~~S~~pain)
 * Results
 * ~~Submitting~~ **Done!**
-* User profile
+* ~~User profile~~
 * Rankings
 * Cache data for use across calls
   - cache `satori_token`

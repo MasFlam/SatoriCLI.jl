@@ -48,6 +48,7 @@ The following features are fully implemented:
 * Login and saving login credentials
 * Retrieving and displaying contest list
 * Submitting to problems
+* Retrieving and displaying user profile
 
 The following are at least work-in-progress:
 * Retrieving contest news
@@ -56,7 +57,6 @@ The following are at least work-in-progress:
 
 And the following are planned:
 * Caching
-* User profile
 * Retrieving and displaying rankings
 * Applying to contests
 
