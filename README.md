@@ -33,6 +33,8 @@ Options:
 * `-remember`/`-noremeber` - enable/disable *saving* the login credentials
 
 Commands: (can be shortened to any of their prefixes)
+* `login` - Just prompt for the login credentials and see if they work
+* `forget` - Forget the saved login credentials
 * `contests` - Retrieve contests list
 * `news <contest>` - Retrieve contest news
 * `problems <contest>` - Retrieve contest problem list

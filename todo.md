@@ -2,7 +2,7 @@
 * Set up the project to use PackageCompiler.jl
 
 ## API-related
-* Auto-relogin if session's over
+* ~~Auto-relogin if session's over~~
 * Applying to contests
 * ~~Submits/Results~~ **Done!**
   - ~~`Result`~~

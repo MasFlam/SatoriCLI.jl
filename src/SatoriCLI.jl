@@ -19,7 +19,6 @@ function julia_main():: Cint
 		if !isa(e, Tuple{Symbol, Union{AbstractString, Nothing}})
 			if e isa ErrorException && e.msg == "incorrect login credentials"
 				println("Incorrect login credentials" |> red)
-				opts.remember && rm(configdir * "/cred", force=true)
 			else
 				println(stderr, "Unknown error" |> red)
 				rethrow()
@@ -77,6 +76,10 @@ function main()
 		problems_cmd(cmdargs)
 	elseif cmd == :submit
 		submit_cmd(cmdargs)
+	elseif cmd == :login
+		login_cmd(cmdargs)
+	elseif cmd == :forget
+		forget_cmd(cmdargs)
 	end
 end
 
@@ -167,7 +170,17 @@ function submit_cmd(args:: AbstractVector{String})
 	
 	make_submit(client, contest_id, problem_id, filepath)
 	
-	println("Submitted $filepath" |> green)
+	println("Submitted $filepath." |> green)
+end
+
+function login_cmd(args:: AbstractVector{String})
+	client_login(client)
+	println("Logged in successfully with username $(client.username)." |> green)
+end
+
+function forget_cmd(args:: AbstractVecotr{String})
+	rm(configdir * "/cred", force=true)
+	println("Deleted the credentials file." |> green)
 end
 
 function command(idx:: Integer):: Symbol
@@ -177,6 +190,8 @@ function command(idx:: Integer):: Symbol
 	startswith("news", cmd) && return :news
 	startswith("problems", cmd) && return :problems
 	startswith("submit", cmd) && return :submit
+	startswith("login", cmd) && return :login
+	startswith("forget", cmd) && return :forget
 	# etc...
 	unknown_cmd_error(cmd)
 end
