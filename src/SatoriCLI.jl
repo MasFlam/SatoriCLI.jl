@@ -7,17 +7,23 @@ include("Satori.jl"); using .Satori
 mutable struct Options
 	color:: Bool
 	cache:: Bool
+	remember:: Bool
 end
 
-opts = Options(stdout isa Base.TTY, true)
+opts = Options(stdout isa Base.TTY, true, true)
 
 function julia_main():: Cint
 	try
 		main()
 	catch e
 		if !isa(e, Tuple{Symbol, Union{AbstractString, Nothing}})
-			println(stderr, "Unknown error" |> red)
-			rethrow()
+			if e isa ErrorException && e.msg == "incorrect login credentials"
+				println("Incorrect login credentials" |> red)
+				opts.remember && rm(configdir * "/cred", force=true)
+			else
+				println(stderr, "Unknown error" |> red)
+				rethrow()
+			end
 		elseif e[1] == :unknown_option
 			println(stderr, red("Unknown option:") * ' ' * yellow(e[2]))
 		elseif e[1] == :no_cmd
@@ -176,7 +182,7 @@ function command(idx:: Integer):: Symbol
 end
 
 function password_prompt():: String
-	# TODD: do what read -s does
+	# TODO: do what read -s does
 	return readline()
 end
 

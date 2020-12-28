@@ -91,6 +91,17 @@ function query_satori(client:: Client, method, path, headers, body; kws...):: HT
 		#status_exception = false,
 		kws...
 	)
+	
+	# if it redirects us to the login page that means our session ended or we're not logged in at all
+	if 300 <= resp.status < 400 && any(h -> h[1] == "Location" && startswith(URL_BASE * "/login", h[2]), resp.headers)
+		if client.relogin
+			client_login(client, force=true)
+			return query_satori(client, method, path, headers, body; kws...)
+		else
+			error("not logged in and relogin is off")
+		end
+	end
+	
 	resp
 end
 
@@ -107,13 +118,17 @@ function new_client(
 end
 
 function client_login(client:: Client; force:: Bool = false)
-	(!client.logged_in || force) && query_satori(
-		client,
-		:POST,
-		"/login",
-		[],
-		"login=$(client.username |> escapeuri)&password=$(client.password |> escapeuri)"
-	)
+	if !client.logged_in || force
+		local resp = query_satori(
+			client,
+			:POST,
+			"/login",
+			[],
+			"login=$(client.username |> escapeuri)&password=$(client.password |> escapeuri)"
+		)
+		# if the login is successful we get redirected to /news by default with a 302
+		resp.status == 200 && error("incorrect login credentials")
+	end
 	client.logged_in = true
 end
 
