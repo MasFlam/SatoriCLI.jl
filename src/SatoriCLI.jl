@@ -67,8 +67,6 @@ function main()
 	global cachedir = get(ENV, "XDG_CACHE_HOME", homedir() * "/.cache/satori-cli")
 	mkpath.([configdir, cachedir], mode=0o755)
 	
-	global client = new_client(get_login_credentials()...; login=false)
-	
 	if cmd == :contests
 		contests_cmd(cmdargs)
 	elseif cmd == :news
@@ -85,7 +83,7 @@ function main()
 end
 
 function contests_cmd(args:: AbstractVector{String})
-	client_login(client)
+	login()
 	local contests = get_contests(client)
 	
 	if args |> length == 0 || args[1] == "all"
@@ -117,7 +115,7 @@ function contests_cmd(args:: AbstractVector{String})
 end
 
 function news_cmd(args:: AbstractVector{String})
-	client_login(client)
+	login()
 	local contest_id, idx = parse_contest(args)
 	contest_id == -1 && cmd_usage_error("news <contest>")
 	local news = get_contest_news(client, contest_id)
@@ -133,7 +131,7 @@ function news_cmd(args:: AbstractVector{String})
 end
 
 function problems_cmd(args:: AbstractVector{String})
-	client_login(client)
+	login()
 	local contest_id, idx = parse_contest(args)
 	contest_id == -1 && cmd_usage_error("problems <contest>")
 	local problems = get_contest_problems(client, contest_id)
@@ -157,7 +155,7 @@ end
 
 function submit_cmd(args:: AbstractVector{String})
 	local errmsg = "submit <contest> : <problem> : <filepath>"
-	client_login(client)
+	login()
 	
 	local contest_id, idx = parse_contest(args)
 	(contest_id == -1 || idx > length(args)) && cmd_usage_error(errmsg)
@@ -175,11 +173,11 @@ function submit_cmd(args:: AbstractVector{String})
 end
 
 function login_cmd(args:: AbstractVector{String})
-	client_login(client)
+	login()
 	println("Logged in successfully with username $(client.username)." |> green)
 end
 
-function forget_cmd(args:: AbstractVecotr{String})
+function forget_cmd(args:: AbstractVector{String})
 	rm(configdir * "/cred", force=true)
 	println("Deleted the credentials file." |> green)
 end
@@ -210,6 +208,14 @@ blue(s):: AbstractString    = opts.color ? "\e[34m" * s * "\e[39m" : string(s)
 magenta(s):: AbstractString = opts.color ? "\e[35m" * s * "\e[39m" : string(s)
 cyan(s):: AbstractString    = opts.color ? "\e[36m" * s * "\e[39m" : string(s)
 white(s):: AbstractString   = opts.color ? "\e[37m" * s * "\e[39m" : string(s)
+
+function login()
+	if client === nothing
+		global client = new_client(get_login_credentials()...)
+	else
+		client_login(client)
+	end
+end
 
 function ask_credentials():: Tuple{String, String}
 	print("Satori login: ")
