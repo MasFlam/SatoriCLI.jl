@@ -39,6 +39,6 @@
 * ~~Submitting~~ **Done!**
 * ~~User profile~~
 * Rankings
-* Cache data for use across calls
-  - cache `satori_token`
+* ~~Cache data for use across calls~~ **Done!**
+  - cache `satori_token` **- is tricky and might be unnecessary**
 * Make password prompt hide the input **- needs research**

@@ -1,7 +1,9 @@
 module SatoriCLI
 
-using Dates: format
 import Gumbo
+import Dates
+using Dates: DateTime, @dateformat_str, format, now
+using URIs: parse_uri
 include("Satori.jl"); using .Satori
 
 mutable struct Options
@@ -85,10 +87,9 @@ function main()
 end
 
 function contests_cmd(args:: AbstractVector{String})
-	login()
-	local contests = get_contests(client)
+	local contests = get_cached_contests()
 	
-	if args |> length == 0 || args[1] == "all"
+	if args |> isempty || args[1] == "all"
 		# do nothing
 	elseif args[1] == "joined"
 		filter!(c -> c.joined, contests)
@@ -106,7 +107,7 @@ function contests_cmd(args:: AbstractVector{String})
 		
 		print(rpad(con.id, 8) |> blue)
 		print(name |> cyan)
-		desc |> length != 0 && print("  -  $desc")
+		desc |> !isempty && print("  -  $desc")
 		if con.pending
 			print("  (pending)" |> yellow)
 		elseif con.joined
@@ -117,10 +118,9 @@ function contests_cmd(args:: AbstractVector{String})
 end
 
 function news_cmd(args:: AbstractVector{String})
-	login()
 	local contest_id, idx = parse_contest(args)
 	contest_id == -1 && cmd_usage_error("news <contest>")
-	local news = get_contest_news(client, contest_id)
+	local news = get_cached_contest_news(contest_id)
 	
 	for n in news
 		local datetime = format(n.datetime, "yyyy-mm-dd HH:MM:SS")
@@ -133,10 +133,9 @@ function news_cmd(args:: AbstractVector{String})
 end
 
 function problems_cmd(args:: AbstractVector{String})
-	login()
 	local contest_id, idx = parse_contest(args)
 	contest_id == -1 && cmd_usage_error("problems <contest>")
-	local problems = get_contest_problems(client, contest_id)
+	local problems = get_cached_contest_problems(contest_id)
 	
 	local maxcodelen = maximum(p -> p.code |> length, problems) + 2
 	local prev_series_name = nothing
@@ -150,7 +149,7 @@ function problems_cmd(args:: AbstractVector{String})
 		local id = rpad(prob.id, 8)
 		local code = rpad('[' * prob.code * ']', maxcodelen)
 		println("$(id |> blue) $(code |> cyan) $(prob.name |> green)")
-		prob.note |> length > 0 && println(prob.note)
+		prob.note |> !isempty && println(prob.note)
 		println()
 	end
 end
@@ -185,9 +184,9 @@ function forget_cmd(args:: AbstractVector{String})
 end
 
 function profile_cmd(args:: AbstractVector{String})
-	login()
-	local profile = get_user_profile(client)
-	println(blue("Username:") * ' ' * cyan(client.username))
+	local profile = get_cached_user_profile()
+	local user = client !== nothing ? client.username : get_login_credentials(want_password=false)[1]
+	println(blue("Username:") * ' ' * cyan(user))
 	println(blue("First name:") * ' ' * cyan(profile.first_name))
 	println(blue("Last name:") * ' ' * cyan(profile.last_name))
 	println(blue("Affiliation:") * ' ' * cyan(profile.affiliation))
@@ -230,19 +229,21 @@ function login()
 	end
 end
 
-function ask_credentials():: Tuple{String, String}
+function ask_credentials(; want_password:: Bool = true):: Tuple{String, Union{String, Nothing}}
 	print("Satori login: ")
-	local login = readline()
-	print("Satori password: ")
-	local pass = password_prompt()
+	local login, pass = readline(), nothing
+	if want_password
+		print("Satori password: ")
+		pass = password_prompt()
+	end
 	login, pass
 end
 
-function get_login_credentials():: Tuple{String, String}
+function get_login_credentials(; want_password:: Bool = true):: Tuple{String, Union{String, Nothing}}
 	local user, pass = nothing, nothing
 	if !isfile(configdir * "/cred")
-		user, pass = ask_credentials()
-		if opts.remember
+		user, pass = ask_credentials(want_password=want_password)
+		if opts.remember && want_password
 			open(configdir * "/cred", "w") do io
 				write(io, user * '\n')
 				write(io, pass * '\n')
@@ -252,20 +253,19 @@ function get_login_credentials():: Tuple{String, String}
 	else
 		local arr = readlines(configdir * "/cred")
 		user = arr[1]
-		pass = arr[2]
+		want_password && (pass = arr[2])
 	end
 	user, pass
 end
 
 # returns (contest id or -1 if no contest matched, possible next argument index)
 function parse_contest(args:: AbstractVector{String}):: Tuple{Int, Integer}
-	if args |> length == 0
+	if args |> isempty
 		return -1, 0
 	elseif match(r"^\d+$"a, args[1]) !== nothing
 		return parse(Int, args[1]), 2
 	else
-		client_login(client)
-		local contests = get_contests(client)
+		local contests = get_cached_contests()
 		local i = 0
 		for con in contests
 			i = 0
@@ -287,13 +287,12 @@ function parse_contest(args:: AbstractVector{String}):: Tuple{Int, Integer}
 end
 
 function parse_problem(contest_id:: Int, args:: AbstractVector{String}):: Tuple{Int, Integer}
-	if args |> length == 0
+	if args |> isempty
 		return -1, 0
 	elseif match(r"^\d+$"a, args[1]) !== nothing
 		return parse(Int, args[1]), 2
 	else
-		client_login(client)
-		local problems = get_contest_problems(client, contest_id)
+		local problems = get_cached_contest_problems(contest_id)
 		local i = 0
 		for prob in problems
 			i = 0
@@ -314,6 +313,187 @@ function parse_problem(contest_id:: Int, args:: AbstractVector{String}):: Tuple{
 		end
 		return -1, i
 	end
+end
+
+function get_cached_contests():: Vector{Contest}
+	local contests = Contest[]
+	if opts.cache && isfile(cachedir * "/contests")
+		open(cachedir * "/contests") do io
+			local datetime = DateTime(readline(io), dateformat"y-m-d H:M:S")
+			if now() - datetime < Dates.Hour(24)
+				while !eof(io)
+					local id = parse(Int, readline(io))
+					local name = readline(io)
+					local desc = readline(io)
+					local status = readline(io)
+					local pending = status == "pending"
+					local joined = status == "joined" || pending
+					push!(contests, Contest(id, name, desc, joined, pending))
+					readline(io) # consume = = = = =
+				end
+			end
+		end
+	end
+	contests |> !isempty && return contests
+	
+	login()
+	contests = get_contests(client)
+	
+	open(cachedir * "/contests", "w") do io
+		format(io, now(), dateformat"yyyy-mm-dd HH:MM:SS")
+		println(io)
+		for con in contests
+			println(io, con.id)
+			println(io, con.name)
+			println(io, con.description)
+			if con.pending
+				println(io, "pending")
+			elseif con.joined
+				println(io, "joined")
+			else
+				println(io, "other")
+			end
+			println(io, "= = = = =")
+		end
+	end
+	
+	contests
+end
+
+get_cached_contest_news(contest:: Contest):: Vector{ContestNews} =
+	get_cached_contest_news(contest.id)
+
+function get_cached_contest_news(contest_id:: Int):: Vector{ContestNews}
+	local news = ContestNews[]
+	if opts.cache && isfile(cachedir * "/news-$contest_id")
+		open(cachedir * "/news-$contest_id") do io
+			local datetime = DateTime(readline(io), dateformat"y-m-d H:M:S")
+			if now() - datetime < Dates.Hour(24)
+				local title, datetime = nothing, nothing
+				local lines = String[]
+				while !eof(io)
+					if title === nothing
+						title = readline(io)
+						continue
+					elseif datetime === nothing
+						datetime = DateTime(readline(io), dateformat"y-m-d H:M:S")
+						continue
+					end
+					
+					local line = readline(io)
+					if line == "= = = = ="
+						push!(news, ContestNews(title, datetime, join(lines, '\n')))
+						title, datetime = nothing, nothing
+						empty!(lines)
+					else
+						push!(lines, line)
+					end
+				end
+			end
+		end
+	end
+	news |> !isempty && return news
+	
+	login()
+	news = get_contest_news(client, contest_id)
+	
+	open(cachedir * "/news-$contest_id", "w") do io
+		format(io, now(), dateformat"yyyy-mm-dd HH:MM:SS")
+		println(io)
+		for n in news
+			println(io, n.title)
+			format(io, n.datetime, dateformat"yyyy-mm-dd HH:MM:SS")
+			println(io)
+			println(io, n.content)
+			println(io, "= = = = =")
+		end
+	end
+	
+	news
+end
+
+get_cached_contest_problems(contest:: Contest):: Vector{Problem} =
+	get_cached_contest_problems(contest.id)
+
+function get_cached_contest_problems(contest_id:: Int):: Vector{Problem}
+	local problems = Problem[]
+	if opts.cache && isfile(cachedir * "/problems-$contest_id")
+		open(cachedir * "/problems-$contest_id") do io
+			local datetime = DateTime(readline(io), dateformat"y-m-d H:M:S")
+			if now() - datetime < Dates.Hour(6)
+				local series_name = nothing
+				while !eof(io)
+					local id = readline(io)
+					if id == "= = = = ="
+						series_name = readline(io)
+						id = parse(Int, readline(io))
+					else
+						id = parse(Int, id)
+					end
+					local code = readline(io)
+					local name = readline(io)
+					local note = readline(io)
+					push!(problems, Problem(id, contest_id, series_name, code, name, note))
+					readline(io) # consume - - - - -
+				end
+			end
+		end
+	end
+	problems |> !isempty && return problems
+	
+	login()
+	problems = get_contest_problems(client, contest_id)
+	
+	open(cachedir * "/problems-$contest_id", "w") do io
+		format(io, now(), dateformat"yyyy-mm-dd HH:MM:SS")
+		println(io)
+		local last_series_name = nothing
+		for prob in problems
+			if prob.series_name != last_series_name
+				println(io, "= = = = =")
+				println(io, prob.series_name)
+				last_series_name = prob.series_name
+			end
+			println(io, prob.id)
+			println(io, prob.code)
+			println(io, prob.name)
+			println(io, prob.note)
+			println(io, "- - - - -")
+		end
+	end
+	
+	problems
+end
+
+function get_cached_user_profile():: UserProfile
+	local profile = nothing
+	if opts.cache && isfile(cachedir * "/profile")
+		open(cachedir * "/profile") do io
+			local datetime = DateTime(readline(io), dateformat"y-m-d H:M:S")
+			if now() - datetime < Dates.Day(1)
+				local first_name = readline(io)
+				local last_name = readline(io)
+				local affiliation = readline(io)
+				local confirmed = parse(Bool, readline(io))
+				profile = UserProfile(first_name, last_name, affiliation, confirmed)
+			end
+		end
+	end
+	profile !== nothing && return profile
+	
+	login()
+	profile = get_user_profile(client)
+	
+	open(cachedir * "/profile", "w") do io
+		format(io, now(), dateformat"yyyy-mm-dd HH:MM:S")
+		println(io)
+		println(io, profile.first_name)
+		println(io, profile.last_name)
+		println(io, profile.affiliation)
+		println(io, profile.confirmed ? '1' : '0')
+	end
+	
+	profile
 end
 
 # returns the index of the <command> (guarantees it's a valid index into ARGS)

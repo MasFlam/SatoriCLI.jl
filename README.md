@@ -1,14 +1,14 @@
 **WARNING: Only Unix-like systems are supported at the moment**
 # SatoriCLI
 A user-friendliness-first CLI client for the [Satori testing system](https://satori.tcs.uj.edu.pl).
-It works by web scraping, since there is no API there and the Satori project is
+It works by web scraping, since there is no Satori API and the Satori project is
 [*"an abandoned project and is not safe for use"*](https://bitbucket.org/satoriproject/satori),
 as put by its creators and (ex-?)maintainers.
 
 It is still in use though, so that's why SatoriCLI exists in the first place.
 
 # Installation and Running
-This is a work in progress... Packaging up Julia apps into a portable way is tough, and
+This is a work in progress... Packaging up Julia apps in a portable way is tough, and
 [PackageCompiler.jl](https://github.com/JuliaLang/PackageCompiler.jl) helps with that,
 but I have to figure that out too.
 
@@ -29,7 +29,7 @@ Also, first you should launch the Julia REPL in the repo root and
 
 Options:
 * `-color`/`-nocolor` - enable/disable colored output (default is `-color` if the output is a TTY)
-* `-cache`/`-nocache` - enable/disable caching of data (does nothing yet, since caching isn't implemented yet)
+* `-cache`/`-nocache` - enable/disable caching of data (default `-cache`)
 * `-remember`/`-noremeber` - enable/disable *saving* the login credentials
 
 Commands: (can be shortened to any of their prefixes)
@@ -50,6 +50,7 @@ The following features are fully implemented:
 * Retrieving and displaying contest list
 * Submitting to problems
 * Retrieving and displaying user profile
+* Caching
 
 The following are at least work-in-progress:
 * Retrieving contest news
@@ -57,7 +58,6 @@ The following are at least work-in-progress:
 * Retrieving submits/results
 
 And the following are planned:
-* Caching
 * Retrieving and displaying rankings
 * Applying to contests
 
