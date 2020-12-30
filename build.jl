@@ -29,7 +29,6 @@ cd(projdir) do
 				push!(sofiles, dest |> basename)
 				dest = joinpath("build/SatoriCLI/lib/", readlink(dest))
 			end
-			occursin("pcre", filename) && println("after while, dest=$dest")
 			push!(sofiles, dest |> basename)
 		end
 	end
