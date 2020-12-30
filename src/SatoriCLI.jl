@@ -8,6 +8,12 @@ include("Satori.jl"); using .Satori
 
 const SATORI_CLI_VERSION = v"0.1.0"
 
+const COPYRIGHT = """
+Copyright (C) 2020 Łukasz "MasFlam" Drukała
+Licensed under the GNU GPL version 3, available here: https://www.gnu.org/licenses/gpl-3.0.html
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law."""
+
 mutable struct Options
 	color:: Bool
 	cache:: Bool
@@ -27,7 +33,7 @@ function julia_main():: Cint
 				return 1
 			else
 				println(stderr, "Unknown error" |> red)
-				rethrow()
+				showerror(stderr, e)
 			end
 		elseif e[1] == :unknown_option
 			println(stderr, red("Unknown option:") * ' ' * yellow(e[2]))
@@ -41,7 +47,7 @@ function julia_main():: Cint
 			println(stderr, red("File not found:") * ' ' * yellow(e[2]))
 		else
 			println(stderr, "Unknown error" |> red)
-			rethrow()
+			showerror(stderr, e)
 		end
 		return 2
 	end
@@ -74,6 +80,8 @@ function main()
 	
 	if cmd == :help
 		help_cmd(cmdargs)
+	elseif cmd == :version
+		version_cmd(cmdargs)
 	elseif cmd == :contests
 		contests_cmd(cmdargs)
 	elseif cmd == :news
@@ -92,13 +100,14 @@ function main()
 end
 
 function help_cmd(args:: AbstractVector{String})
-	println("SatoriCLI, version $SATORI_CLI_VERSION" |> magenta)
-	println("A command line interface client for the Satori testing system." |> magenta)
-	println("Licensed under the GNU GPL v3. https://www.gnu.org/licenses/gpl-3.0.html" |> cyan)
+	println("SatoriCLI, version $SATORI_CLI_VERSION" |> yellow)
+	println("A command line interface client for the Satori testing system." |> yellow)
 	println()
 	println(magenta("Usage: ") * cyan("satori-cli [options] <command> [...]"))
 	println()
 	println("Commands:" |> magenta)
+	println("    " * cyan("help") * " - Get usage help")
+	println("    " * cyan("version") * " - Get SatoriCLI version")
 	println("    " * cyan("login") * " - Just log in")
 	println("    " * cyan("forget") * " - Forget the remembered login credentials")
 	println("    " * cyan("contests") * " - Get contest list")
@@ -115,6 +124,15 @@ function help_cmd(args:: AbstractVector{String})
 	println("    $(cyan("-color"))/$(cyan("-nocolor")) - Enable/disable colored output")
 	println("    $(cyan("-cache"))/$(cyan("-nocache")) - Enable/disable writing to cache")
 	println("    $(cyan("-remember"))/$(cyan("-noremember")) - Enable/disable saving the login credentials")
+	println()
+	println(COPYRIGHT |> yellow)
+end
+
+function version_cmd(args:: AbstractVector{String})
+	println("SatoriCLI, version $SATORI_CLI_VERSION" |> yellow)
+	println("A command line interface client for the Satori testing system." |> yellow)
+	println()
+	println(COPYRIGHT |> yellow)
 end
 
 function contests_cmd(args:: AbstractVector{String})
@@ -228,6 +246,7 @@ function command(idx:: Integer):: Symbol
 	# we know that this index exists, because of how options() behaves
 	local cmd = ARGS[idx]
 	startswith("help", cmd) && return :help
+	startswith("version", cmd) && return :version
 	startswith("contests", cmd) && return :contests
 	startswith("news", cmd) && return :news
 	startswith("problems", cmd) && return :problems

@@ -1,15 +1,21 @@
 #!/usr/bin/env julia
 
+println("[==== STARTING BUILD ====]")
+
 import Pkg
 using PackageCompiler
 
 projdir = dirname(PROGRAM_FILE)
 Pkg.activate(projdir)
+Pkg.resolve()
+Pkg.instantiate(verbose=true)
 
 cd(projdir) do
 	isdir("build") && rm("build", recursive=true, force=true)
 	
+	println("[==== STARTING COMPILATION ====]")
 	create_app(".", "build/SatoriCLI", precompile_execution_file="precompile_app.jl")
+	println("[==== COMPILATION FINISHED ====]")
 	
 	# The rest of this file is needed only because of a bug that occurs with PackageCompiler.jl
 	
@@ -17,12 +23,9 @@ cd(projdir) do
 	
 	for filename in readdir("build/SatoriCLI/lib/julia")
 		filepath = joinpath("build/SatoriCLI/lib/julia", filename)
-		occursin("pcre", filename) && println(filename)
 		if islink(filepath) && startswith(readlink(filepath), "../")
-			occursin("pcre", filename) && println("is link & startswith")
 			dest = joinpath("build/SatoriCLI/lib/julia/", readlink(filepath))
 			while islink(dest)
-				occursin("pcre", filename) && println("link iter, dest=$dest")
 				push!(sofiles, dest |> basename)
 				dest = joinpath("build/SatoriCLI/lib/", readlink(dest))
 			end
@@ -42,4 +45,4 @@ cd(projdir) do
 	end
 end
 
-println("==== BUILD FINISHED ====")
+println("[==== BUILD FINISHED ====]")

@@ -13,8 +13,6 @@ It is still in use though, so that's why SatoriCLI exists in the first place.
 # Installation
 Download the latest release, unpack it, `cd` into that directory and run `install.sh` (will probably need root):
 ```
-$ ls
-SatoriCLI.tar.gz
 $ tar -xzf SatoriCLI.tar.gz
 $ cd SatoriCLI
 $ sudo ./install.sh
@@ -29,6 +27,8 @@ Options:
 * `-remember`/`-noremeber` - enable/disable *saving* the login credentials
 
 Commands: (can be shortened to any of their prefixes)
+* `help` - Get usage help
+* `version` - Get SatoriCLI version
 * `login` - Just prompt for the login credentials and see if they work
 * `forget` - Forget the saved login credentials
 * `contests` - Retrieve contests list
