@@ -6,6 +6,8 @@ using Dates: DateTime, @dateformat_str, format, now
 using URIs: parse_uri
 include("Satori.jl"); using .Satori
 
+const SATORI_CLI_VERSION = v"0.1.0"
+
 mutable struct Options
 	color:: Bool
 	cache:: Bool
@@ -70,7 +72,9 @@ function main()
 	global cachedir = get(ENV, "XDG_CACHE_HOME", homedir() * "/.cache/satori-cli")
 	mkpath.([configdir, cachedir], mode=0o755)
 	
-	if cmd == :contests
+	if cmd == :help
+		help_cmd(cmdargs)
+	elseif cmd == :contests
 		contests_cmd(cmdargs)
 	elseif cmd == :news
 		news_cmd(cmdargs)
@@ -85,6 +89,32 @@ function main()
 	elseif cmd == :profile
 		profile_cmd(cmdargs)
 	end
+end
+
+function help_cmd(args:: AbstractVector{String})
+	println("SatoriCLI, version $SATORI_CLI_VERSION" |> magenta)
+	println("A command line interface client for the Satori testing system." |> magenta)
+	println("Licensed under the GNU GPL v3. https://www.gnu.org/licenses/gpl-3.0.html" |> cyan)
+	println()
+	println(magenta("Usage: ") * cyan("satori-cli [options] <command> [...]"))
+	println()
+	println("Commands:" |> magenta)
+	println("    " * cyan("login") * " - Just log in")
+	println("    " * cyan("forget") * " - Forget the remembered login credentials")
+	println("    " * cyan("contests") * " - Get contest list")
+	println("    " * cyan("news <contest>") * " - Get news for " * cyan("<contest>"))
+	println("    " * cyan("problems <contest>") * " - Get list of problems in " * cyan("<contest>"))
+	println("    " * cyan("login <contest> : <problem> : <filepath>") * " - Submit file $(cyan("<filepath>")) to $(cyan("<problem>")) in $(cyan("<contest>"))")
+	println("    " * cyan("profile") * " - Get the user profile")
+	println()
+	println("Commands can be shortened to their prefixes, i.e. $(cyan("c")) means $(cyan("contests")) and $(cyan("prof")) means $(cyan("profile")).")
+	println(cyan("<contest>") * " - Contest ID or a list of keywords to search for")
+	println(cyan("<problem>") * " - Problem ID or a list of keywords to search for")
+	println()
+	println("Options:" |> magenta)
+	println("    $(cyan("-color"))/$(cyan("-nocolor")) - Enable/disable colored output")
+	println("    $(cyan("-cache"))/$(cyan("-nocache")) - Enable/disable writing to cache")
+	println("    $(cyan("-remember"))/$(cyan("-noremember")) - Enable/disable saving the login credentials")
 end
 
 function contests_cmd(args:: AbstractVector{String})
@@ -197,6 +227,7 @@ end
 function command(idx:: Integer):: Symbol
 	# we know that this index exists, because of how options() behaves
 	local cmd = ARGS[idx]
+	startswith("help", cmd) && return :help
 	startswith("contests", cmd) && return :contests
 	startswith("news", cmd) && return :news
 	startswith("problems", cmd) && return :problems

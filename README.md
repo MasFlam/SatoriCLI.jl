@@ -1,4 +1,7 @@
 **WARNING: Only Unix-like systems are supported at the moment**
+
+![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/MasFlam/SatoriCLI.jl?sort=semver)
+
 # SatoriCLI
 A user-friendliness-first CLI client for the [Satori testing system](https://satori.tcs.uj.edu.pl).
 It works by web scraping, since there is no Satori API and the Satori project is
@@ -12,7 +15,7 @@ Download the latest release, unpack it, `cd` into that directory and run `instal
 ```
 $ ls
 SatoriCLI.tar.gz
-$ tax -xzf SatoriCLI.tar.gz
+$ tar -xzf SatoriCLI.tar.gz
 $ cd SatoriCLI
 $ sudo ./install.sh
 ```
