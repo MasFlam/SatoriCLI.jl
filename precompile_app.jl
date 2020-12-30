@@ -27,6 +27,14 @@ chmod(ENV["XDG_CONFIG_HOME"] * "/cred", 0o600)
 
 
 empty!(ARGS)
+push!(ARGS, "help")
+SatoriCLI.julia_main()
+
+empty!(ARGS)
+push!(ARGS, "version")
+SatoriCLI.julia_main()
+
+empty!(ARGS)
 push!(ARGS, "-nocolor", "-remember", "login")
 SatoriCLI.julia_main()
 
