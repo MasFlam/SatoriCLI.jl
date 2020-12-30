@@ -14,7 +14,7 @@ build:
 
 package:
 	echo '#!/bin/sh' >> build/SatoriCLI/install.sh
-	echo cp -r SatoriCLI \"$$\{1:-/usr/local/bin\}\" >> build/SatoriCLI/install.sh
+	echo cp -r . \"$$\{1:-/usr/local/bin\}\"/SatoriCLI >> build/SatoriCLI/install.sh
 	echo ln -s SatoriCLI/bin/SatoriCLI \"$$\{1:-/usr/local/bin\}\"/satori-cli >> build/SatoriCLI/install.sh
 	chmod +x build/SatoriCLI/install.sh
 	cp LICENSE build/SatoriCLI/LICENSE
