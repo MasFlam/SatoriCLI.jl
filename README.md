@@ -7,21 +7,14 @@ as put by its creators and (ex-?)maintainers.
 
 It is still in use though, so that's why SatoriCLI exists in the first place.
 
-# Installation and Running
-This is a work in progress... Packaging up Julia apps in a portable way is tough, and
-[PackageCompiler.jl](https://github.com/JuliaLang/PackageCompiler.jl) helps with that,
-but I have to figure that out too.
-
-Right now you can run it (if you have Julia installed) by, from the repo root, running
-`julia -e 'include("src/SatoriCLI.jl"); SatoriCLI.julia_main()' -- <program arguments>`.
-This is very crude since that recompiles the whole package every time, but it's how I'm testing it at the moment.
-Generating a sysimage could help and be a good idea when testing, but it's far from being perfect.
-
-Also, first you should launch the Julia REPL in the repo root and
+# Installation
+Download the latest release, unpack it, `cd` into that directory and run `install.sh` (will probably need root):
 ```
-] activate .
-] resolve
-] instantiate
+$ ls
+SatoriCLI.tar.gz
+$ tax -xzf SatoriCLI.tar.gz
+$ cd SatoriCLI
+$ sudo ./install.sh
 ```
 
 # Usage
@@ -62,6 +55,29 @@ And the following are planned:
 * Applying to contests
 
 See [`todo.md`](/todo.md) for details.
+
+# Building
+Clone the repo and run these in the julia REPL: (by running `julia`)
+```
+] activate .
+] resolve
+] instantiate
+```
+Then to build the full (release) package from source:
+* Create a file named `precompile_in.txt` containing:
+```
+<a couple of keywords for an existing contest>
+<id of that contest>
+<id of a problem in that contest>
+<path to a file that will be submitted as a solution to that problem>
+<username>
+<password>
+```
+  This will be used for compilation, see [`precompile_app.jl`](/precompile_app.jl).
+* `make build`
+* `make install` or `make prefix=/usr/local/bin install` (if you want to)
+
+For testing the program, use `julia --project -e 'include("src/SatoriCLI.jl"); SatoriCLI.julia_main()' -- <program arguments>` - it's way faster than rebuilding the whole package.
 
 # Contributing
 Contributions such as implementing new features, or finding ways to retrieve data faster are welcome.

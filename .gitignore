@@ -1,2 +1,5 @@
 # I dunno, should this be ignored?
 Manifest.toml
+
+build/
+precompile_in.txt

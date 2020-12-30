@@ -12,9 +12,10 @@ mutable struct Options
 	remember:: Bool
 end
 
-opts = Options(stdout isa Base.TTY, true, true)
+opts = nothing
 
 function julia_main():: Cint
+	global opts = Options(stdout isa Base.TTY, true, true)
 	try
 		main()
 	catch e

@@ -1,5 +1,5 @@
 # TODO:
-* Set up the project to use PackageCompiler.jl
+* ~~Set up the project to use PackageCompiler.jl~~ **Finally done!**
 
 ## API-related
 * ~~Auto-relogin if session's over~~
