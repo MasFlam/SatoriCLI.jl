@@ -13,8 +13,12 @@ build:
 	./build.jl
 
 package:
-	echo '#!/bin/sh' >> build/SatoriCLI/install.sh
-	echo cp -r . \"$$\{1:-/usr/local/bin\}\"/SatoriCLI >> build/SatoriCLI/install.sh
+	echo '#!/bin/sh'                                                          >> build/SatoriCLI/install.sh
+	echo echo '#!/bin/sh' '>> uninstall.sh'                                   >> build/SatoriCLI/install.sh
+	echo echo rm \"$$\{1:-/usr/local/bin\}\"/satori-cli '>> uninstall.sh'     >> build/SatoriCLI/install.sh
+	echo echo rm -r \"$$\{1:-/usr/local/bin\}\"/SatoriCLI '>> uninstall.sh'   >> build/SatoriCLI/install.sh
+	echo chmod +x uninstall.sh                                                >> build/SatoriCLI/install.sh
+	echo cp -r . \"$$\{1:-/usr/local/bin\}\"/SatoriCLI                        >> build/SatoriCLI/install.sh
 	echo ln -s SatoriCLI/bin/SatoriCLI \"$$\{1:-/usr/local/bin\}\"/satori-cli >> build/SatoriCLI/install.sh
 	chmod +x build/SatoriCLI/install.sh
 	cp LICENSE build/SatoriCLI/LICENSE

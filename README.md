@@ -80,7 +80,7 @@ Then to build the full (release) package from source:
 * `make build`
 * `make install` or `make prefix=/usr/local/bin install` (if you want to)
 
-For testing the program, use `julia --project -e 'include("src/SatoriCLI.jl"); SatoriCLI.julia_main()' -- <program arguments>` - it's way faster than rebuilding the whole package.
+For testing the program, use `julia --project -e 'import SatoriCLI; SatoriCLI.julia_main()' -- <program arguments>` - it's way faster than rebuilding the whole package.
 
 # Contributing
 Contributions such as implementing new features, or finding ways to retrieve data faster are welcome.

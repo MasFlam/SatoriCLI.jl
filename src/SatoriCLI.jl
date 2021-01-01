@@ -2,17 +2,19 @@ module SatoriCLI
 
 import Gumbo
 import Dates
-using Dates: DateTime, @dateformat_str, format, now
+using Dates: DateTime, @dateformat_str, format, now,
+	Period, Second, Minute, Hour, Day, Week
 using URIs: parse_uri
 include("Satori.jl"); using .Satori
 
 const SATORI_CLI_VERSION = v"0.1.0"
 
 const COPYRIGHT = """
-Copyright (C) 2020 Łukasz "MasFlam" Drukała
+Copyright (C) 2020-2021 Łukasz "MasFlam" Drukała
 Licensed under the GNU GPL version 3, available here: https://www.gnu.org/licenses/gpl-3.0.html
 This is free software: you are free to change and redistribute it.
-There is NO WARRANTY, to the extent permitted by law."""
+There is NO WARRANTY, to the extent permitted by law.
+"""
 
 mutable struct Options
 	color:: Bool
@@ -20,14 +22,23 @@ mutable struct Options
 	remember:: Bool
 end
 
+mutable struct Config
+	contests_cache_ttl:: Period
+	contest_news_cache_ttl:: Period
+	contest_problems_cache_ttl:: Period
+	user_profile_cache_ttl:: Period
+end
+
 opts = nothing
+config = nothing
 
 function julia_main():: Cint
 	global opts = Options(stdout isa Base.TTY, true, true)
+	global config = Config(Hour(4), Hour(6), Minute(30), Day(1))
 	try
 		main()
 	catch e
-		if !isa(e, Tuple{Symbol, Union{AbstractString, Nothing}})
+		if !isa(e, Tuple{Symbol, Any})
 			if e isa ErrorException && e.msg == "incorrect login credentials"
 				println("Incorrect login credentials" |> red)
 				return 1
@@ -45,6 +56,10 @@ function julia_main():: Cint
 			println(stderr, red("Usage:") * ' ' * yellow("satori-cli [options] " * e[2]))
 		elseif e[1] == :submit_file_not_found
 			println(stderr, red("File not found:") * ' ' * yellow(e[2]))
+		elseif e[1] == :invalid_period
+			println(stderr, red("Invalid period:") * ' ' * yellow(e[2]))
+		elseif e[1] == :read_config
+			println(stderr, red("Error reading config at line ") * yellow(e[2][1]) * red(": ") * yellow(e[2][2]))
 		else
 			println(stderr, "Unknown error" |> red)
 			showerror(stderr, e)
@@ -59,6 +74,8 @@ no_cmd_error() = throw((:no_cmd, nothing))
 unknown_cmd_error(cmd:: AbstractString) = throw((:unknown_cmd, cmd))
 cmd_usage_error(msg:: AbstractString) = throw((:cmd_usage, msg))
 submit_file_not_found_error(filepath:: AbstractString) = throw((:submit_file_not_found, filepath))
+invalid_period_error(msg:: AbstractString) = throw((:invalid_period, msg))
+read_config_error(lineno:: Integer, msg:: AbstractString) = throw((:read_config, (lineno, msg)))
 
 function main()
 	global client = nothing
@@ -69,14 +86,16 @@ function main()
 		client !== nothing && client_logout(client)
 	end
 	
+	global configdir = joinpath(get(ENV, "XDG_CONFIG_HOME", joinpath(homedir(), ".config")), "satori-cli")
+	global cachedir = joinpath(get(ENV, "XDG_CACHE_HOME", joinpath(homedir(), ".cache")), "satori-cli")
+	mkpath.([configdir, cachedir], mode=0o755)
+	
+	read_config()
+	
 	local idx = options()
 	local cmd = command(idx)
 	idx += 1
 	local cmdargs = ARGS[idx:end]
-	
-	global configdir = get(ENV, "XDG_CONFIG_HOME", homedir() * "/.config/satori-cli")
-	global cachedir = get(ENV, "XDG_CACHE_HOME", homedir() * "/.cache/satori-cli")
-	mkpath.([configdir, cachedir], mode=0o755)
 	
 	if cmd == :help
 		help_cmd(cmdargs)
@@ -113,7 +132,7 @@ function help_cmd(args:: AbstractVector{String})
 	println("    " * cyan("contests") * " - Get contest list")
 	println("    " * cyan("news <contest>") * " - Get news for " * cyan("<contest>"))
 	println("    " * cyan("problems <contest>") * " - Get list of problems in " * cyan("<contest>"))
-	println("    " * cyan("login <contest> : <problem> : <filepath>") * " - Submit file $(cyan("<filepath>")) to $(cyan("<problem>")) in $(cyan("<contest>"))")
+	println("    " * cyan("submit <contest> : <problem> : <filepath>") * " - Submit file $(cyan("<filepath>")) to $(cyan("<problem>")) in $(cyan("<contest>"))")
 	println("    " * cyan("profile") * " - Get the user profile")
 	println()
 	println("Commands can be shortened to their prefixes, i.e. $(cyan("c")) means $(cyan("contests")) and $(cyan("prof")) means $(cyan("profile")).")
@@ -125,14 +144,22 @@ function help_cmd(args:: AbstractVector{String})
 	println("    $(cyan("-cache"))/$(cyan("-nocache")) - Enable/disable writing to cache")
 	println("    $(cyan("-remember"))/$(cyan("-noremember")) - Enable/disable saving the login credentials")
 	println()
-	println(COPYRIGHT |> yellow)
+	println("The configuration file is read line by line and each line contains a $(cyan("key: value")) pair. Lines starting with $('#' |> cyan) are ignored.")
+	println(magenta("Configuration file:") * ' ' * cyan(realpath(joinpath(configdir, "config.txt"))))
+	println("Valid configuration keys:" |> magenta)
+	println("    " * cyan("contests_cache_ttl") * " - Duration for which to cache the contests list " * cyan("(default 4h)"))
+	println("    " * cyan("contest_news_cache_ttl") * " - Duration for which to cache contest news " * cyan("(default 6h)"))
+	println("    " * cyan("contest_problems_cache_ttl") * " - Duration for which to cache contest problems " * cyan("(default 30m)"))
+	println("    " * cyan("user_profile_cache_ttl") * " - Duration for which to cache the user profile " * cyan("(default 1d)"))
+	println()
+	print(COPYRIGHT |> yellow)
 end
 
 function version_cmd(args:: AbstractVector{String})
 	println("SatoriCLI, version $SATORI_CLI_VERSION" |> yellow)
 	println("A command line interface client for the Satori testing system." |> yellow)
 	println()
-	println(COPYRIGHT |> yellow)
+	print(COPYRIGHT |> yellow)
 end
 
 function contests_cmd(args:: AbstractVector{String})
@@ -197,7 +224,7 @@ function problems_cmd(args:: AbstractVector{String})
 		end
 		local id = rpad(prob.id, 8)
 		local code = rpad('[' * prob.code * ']', maxcodelen)
-		println("$(id |> blue) $(code |> cyan) $(prob.name |> green)")
+		println("$(id |> blue)$(code |> cyan) $(prob.name |> green)")
 		prob.note |> !isempty && println(prob.note)
 		println()
 	end
@@ -228,7 +255,7 @@ function login_cmd(args:: AbstractVector{String})
 end
 
 function forget_cmd(args:: AbstractVector{String})
-	rm(configdir * "/cred", force=true)
+	rm(joinpath(configdir, "cred"), force=true)
 	println("Deleted the credentials file." |> green)
 end
 
@@ -292,17 +319,18 @@ end
 
 function get_login_credentials(; want_password:: Bool = true):: Tuple{String, Union{String, Nothing}}
 	local user, pass = nothing, nothing
-	if !isfile(configdir * "/cred")
+	local path = joinpath(configdir, "cred")
+	if !isfile(path)
 		user, pass = ask_credentials(want_password=want_password)
 		if opts.remember && want_password
-			open(configdir * "/cred", "w") do io
+			open(path, "w") do io
 				write(io, user * '\n')
 				write(io, pass * '\n')
 			end
-			chmod(configdir * "/cred", 0o600)
+			chmod(path, 0o600)
 		end
 	else
-		local arr = readlines(configdir * "/cred")
+		local arr = readlines(path)
 		user = arr[1]
 		want_password && (pass = arr[2])
 	end
@@ -366,12 +394,45 @@ function parse_problem(contest_id:: Int, args:: AbstractVector{String}):: Tuple{
 	end
 end
 
+function parse_period(str:: AbstractString):: Period
+	local digits = Char[]
+	local period = Second(0)
+	for ch in str
+		isspace(ch) && continue
+		if isdigit(ch)
+			push!(digits, ch)
+		elseif occursin(ch, "smhdw")
+			local fn = nothing
+			if ch == 's'
+				fn = Second
+			elseif ch == 'm'
+				fn = Minute
+			elseif ch == 'h'
+				fn = Hour
+			elseif ch == 'd'
+				fn = Day
+			elseif ch == 'w'
+				fn = Week
+			else
+				invalid_period_error("Unknown unit of time: '$ch'")
+			end
+			isempty(digits) && push!(digits, '1')
+			period += Second(fn(String(digits)))
+			empty!(digits)
+		else
+			invalid_period_error("Unexpected character: '$ch'")
+		end
+	end
+	period
+end
+
 function get_cached_contests():: Vector{Contest}
 	local contests = Contest[]
-	if opts.cache && isfile(cachedir * "/contests")
-		open(cachedir * "/contests") do io
+	local path = joinpath(cachedir, "contests")
+	if opts.cache && isfile(path)
+		open(path) do io
 			local datetime = DateTime(readline(io), dateformat"y-m-d H:M:S")
-			if now() - datetime < Dates.Hour(24)
+			if now() - datetime < config.contests_cache_ttl
 				while !eof(io)
 					local id = parse(Int, readline(io))
 					local name = readline(io)
@@ -390,7 +451,7 @@ function get_cached_contests():: Vector{Contest}
 	login()
 	contests = get_contests(client)
 	
-	open(cachedir * "/contests", "w") do io
+	open(path, "w") do io
 		format(io, now(), dateformat"yyyy-mm-dd HH:MM:SS")
 		println(io)
 		for con in contests
@@ -416,10 +477,11 @@ get_cached_contest_news(contest:: Contest):: Vector{ContestNews} =
 
 function get_cached_contest_news(contest_id:: Int):: Vector{ContestNews}
 	local news = ContestNews[]
-	if opts.cache && isfile(cachedir * "/news-$contest_id")
-		open(cachedir * "/news-$contest_id") do io
+	local path = joinpath(cachedir, "news-$contest_id")
+	if opts.cache && isfile(path)
+		open(path) do io
 			local datetime = DateTime(readline(io), dateformat"y-m-d H:M:S")
-			if now() - datetime < Dates.Hour(24)
+			if now() - datetime < config.contest_news_cache_ttl
 				local title, datetime = nothing, nothing
 				local lines = String[]
 				while !eof(io)
@@ -448,7 +510,7 @@ function get_cached_contest_news(contest_id:: Int):: Vector{ContestNews}
 	login()
 	news = get_contest_news(client, contest_id)
 	
-	open(cachedir * "/news-$contest_id", "w") do io
+	open(path, "w") do io
 		format(io, now(), dateformat"yyyy-mm-dd HH:MM:SS")
 		println(io)
 		for n in news
@@ -468,10 +530,11 @@ get_cached_contest_problems(contest:: Contest):: Vector{Problem} =
 
 function get_cached_contest_problems(contest_id:: Int):: Vector{Problem}
 	local problems = Problem[]
-	if opts.cache && isfile(cachedir * "/problems-$contest_id")
-		open(cachedir * "/problems-$contest_id") do io
+	local path = joinpath(cachedir, "problems-$contest_id")
+	if opts.cache && isfile(path)
+		open(path) do io
 			local datetime = DateTime(readline(io), dateformat"y-m-d H:M:S")
-			if now() - datetime < Dates.Hour(6)
+			if now() - datetime < config.contest_problems_cache_ttl
 				local series_name = nothing
 				while !eof(io)
 					local id = readline(io)
@@ -495,7 +558,7 @@ function get_cached_contest_problems(contest_id:: Int):: Vector{Problem}
 	login()
 	problems = get_contest_problems(client, contest_id)
 	
-	open(cachedir * "/problems-$contest_id", "w") do io
+	open(path, "w") do io
 		format(io, now(), dateformat"yyyy-mm-dd HH:MM:SS")
 		println(io)
 		local last_series_name = nothing
@@ -518,10 +581,11 @@ end
 
 function get_cached_user_profile():: UserProfile
 	local profile = nothing
-	if opts.cache && isfile(cachedir * "/profile")
-		open(cachedir * "/profile") do io
+	local path = joinpath(cachedir, "profile")
+	if opts.cache && isfile(path)
+		open(path) do io
 			local datetime = DateTime(readline(io), dateformat"y-m-d H:M:S")
-			if now() - datetime < Dates.Day(1)
+			if now() - datetime < config.user_profile_cache_ttl
 				local first_name = readline(io)
 				local last_name = readline(io)
 				local affiliation = readline(io)
@@ -535,7 +599,7 @@ function get_cached_user_profile():: UserProfile
 	login()
 	profile = get_user_profile(client)
 	
-	open(cachedir * "/profile", "w") do io
+	open(path, "w") do io
 		format(io, now(), dateformat"yyyy-mm-dd HH:MM:S")
 		println(io)
 		println(io, profile.first_name)
@@ -571,6 +635,38 @@ function options():: Integer
 	end
 	# if we get here that means no command was given
 	no_cmd_error()
+end
+
+function read_config()
+	local path = joinpath(configdir, "config.txt")
+	if isfile(path)
+		open(path) do io
+			local lineno = 0
+			while !eof(io)
+				local line = readline(io)
+				lineno += 1
+				startswith(line, r"\s*#") && continue
+				local colonpos = findfirst(':', line)
+				colonpos === nothing && continue
+				local key = line[begin:colonpos-1]
+				local val = line[colonpos+1:end]
+				
+				try
+					if key == "contests_cache_ttl"
+						config.contests_cache_ttl = parse_period(val)
+					elseif key == "contest_news_cache_ttl"
+						config.contest_news_cache_ttl = parse_period(val)
+					elseif key == "contest_problems_cache_ttl"
+						config.contest_problems_cache_ttl = parse_period(val)
+					elseif key == "user_profile_cache_ttl"
+						config.user_profile_cache_ttl = parse_period(val)
+					end
+				catch e
+					read_config_error(lineno, e[2])
+				end
+			end
+		end
+	end
 end
 
 end # module

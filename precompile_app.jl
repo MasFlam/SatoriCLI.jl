@@ -4,7 +4,7 @@ include("src/SatoriCLI.jl")
 
 using .SatoriCLI: black, red, green, yellow, blue, magenta, cyan, white
 
-open((@__DIR__) * "/precompile_in.txt") do io
+open(joinpath((@__DIR__), "precompile_in.txt")) do io
 	global keywords = split(readline(io))
 	global contest_id = readline(io)
 	global problem_id = readline(io)
@@ -14,16 +14,16 @@ open((@__DIR__) * "/precompile_in.txt") do io
 end
 
 
-ENV["XDG_CONFIG_HOME"] = (@__DIR__) * "/build/.configdir"
-ENV["XDG_CACHE_HOME"] = (@__DIR__) * "/build/.cachedir"
+ENV["XDG_CONFIG_HOME"] = joinpath((@__DIR__), "build/.configdir")
+ENV["XDG_CACHE_HOME"] = joinpath((@__DIR__), "build/.cachedir")
 
 
 mkpath(ENV["XDG_CONFIG_HOME"])
-open(ENV["XDG_CONFIG_HOME"] * "/cred", "w") do io
+open(joinpath(ENV["XDG_CONFIG_HOME"], "cred"), "w") do io
 	println(io, user)
 	println(io, pass)
 end
-chmod(ENV["XDG_CONFIG_HOME"] * "/cred", 0o600)
+chmod(joinpath(ENV["XDG_CONFIG_HOME"], "cred"), 0o600)
 
 
 empty!(ARGS)
@@ -33,6 +33,15 @@ SatoriCLI.julia_main()
 empty!(ARGS)
 push!(ARGS, "version")
 SatoriCLI.julia_main()
+
+open(joinpath(ENV["XDG_CONFIG_HOME"], "config.txt"), "w") do io
+	println("# 42")
+	println("contests_cache_ttl:         4hms")
+	println("contest_news_cache_ttl:     6h s")
+	println("contest_problems_cache_ttl: 30m 5s")
+	println("user_profile_cache_ttl:     1w d")
+	println(io, pass)
+end
 
 empty!(ARGS)
 push!(ARGS, "-nocolor", "-remember", "login")
