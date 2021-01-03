@@ -45,6 +45,7 @@ function julia_main():: Cint
 			else
 				println(stderr, "Unknown error" |> red)
 				showerror(stderr, e)
+				println(stderr)
 			end
 		elseif e[1] == :unknown_option
 			println(stderr, red("Unknown option:") * ' ' * yellow(e[2]))
@@ -63,6 +64,7 @@ function julia_main():: Cint
 		else
 			println(stderr, "Unknown error" |> red)
 			showerror(stderr, e)
+			println(stderr)
 		end
 		return 2
 	end

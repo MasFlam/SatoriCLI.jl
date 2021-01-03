@@ -45,6 +45,8 @@ in the wanted contest name or description. Same is with `<problem>`.
 The following features are fully implemented:
 * Login and saving login credentials
 * Retrieving and displaying contest list
+* Retrieving and displaying contest problems list
+* Getting contest submit results
 * Submitting to problems
 * Retrieving and displaying user profile
 * Caching
@@ -52,7 +54,6 @@ The following features are fully implemented:
 The following are at least work-in-progress:
 * Retrieving contest news
 * Retrieving problem contents
-* Retrieving submits/results
 
 And the following are planned:
 * Retrieving and displaying rankings

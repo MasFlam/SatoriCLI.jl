@@ -35,7 +35,7 @@
   - retrieving & displaying problem content
     + PDF (chosing the program; xdg-open)
     + HTML (~~S~~pain)
-* Results
+* ~~Results~~ **Done!**
 * ~~Submitting~~ **Done!**
 * ~~User profile~~
 * Rankings
