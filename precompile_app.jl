@@ -72,6 +72,10 @@ push!(ARGS, "submit", contest_id, ":", problem_id, ":", file)
 SatoriCLI.julia_main()
 
 empty!(ARGS)
+push!(ARGS, "results", contest_id, ":", "15+1")
+SatoriCLI.julia_main()
+
+empty!(ARGS)
 push!(ARGS, "prof")
 SatoriCLI.julia_main()
 
