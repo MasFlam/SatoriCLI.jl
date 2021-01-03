@@ -107,6 +107,8 @@ function main()
 		news_cmd(cmdargs)
 	elseif cmd == :problems
 		problems_cmd(cmdargs)
+	elseif cmd == :results
+		results_cmd(cmdargs)
 	elseif cmd == :submit
 		submit_cmd(cmdargs)
 	elseif cmd == :login
@@ -132,6 +134,7 @@ function help_cmd(args:: AbstractVector{String})
 	println("    " * cyan("contests") * " - Get contest list")
 	println("    " * cyan("news <contest>") * " - Get news for " * cyan("<contest>"))
 	println("    " * cyan("problems <contest>") * " - Get list of problems in " * cyan("<contest>"))
+	println("    " * cyan("results <contest> [: [pagesize=10]+[pagenum=1] | : <submit_id>]") * " - Get results for " * cyan("<submit_id>") * " or " * cyan("<contest>"))
 	println("    " * cyan("submit <contest> : <problem> : <filepath>") * " - Submit file $(cyan("<filepath>")) to $(cyan("<problem>")) in $(cyan("<contest>"))")
 	println("    " * cyan("profile") * " - Get the user profile")
 	println()
@@ -151,6 +154,7 @@ function help_cmd(args:: AbstractVector{String})
 	println("    " * cyan("contest_news_cache_ttl") * " - Duration for which to cache contest news " * cyan("(default 6h)"))
 	println("    " * cyan("contest_problems_cache_ttl") * " - Duration for which to cache contest problems " * cyan("(default 30m)"))
 	println("    " * cyan("user_profile_cache_ttl") * " - Duration for which to cache the user profile " * cyan("(default 1d)"))
+	println("Results aren't cached since that would probably be useless.")
 	println()
 	print(COPYRIGHT |> yellow)
 end
@@ -182,6 +186,7 @@ function contests_cmd(args:: AbstractVector{String})
 		local desc = con.description
 		
 		print(rpad(con.id, 8) |> blue)
+		print(' ')
 		print(name |> cyan)
 		desc |> !isempty && print("  -  $desc")
 		if con.pending
@@ -224,15 +229,65 @@ function problems_cmd(args:: AbstractVector{String})
 		end
 		local id = rpad(prob.id, 8)
 		local code = rpad('[' * prob.code * ']', maxcodelen)
-		println("$(id |> blue)$(code |> cyan) $(prob.name |> green)")
+		println("$(id |> blue) $(code |> cyan) $(prob.name |> green)")
 		prob.note |> !isempty && println(prob.note)
 		println()
 	end
 end
 
+function results_cmd(args:: AbstractVector{String})
+	local errmsg = "results <contest> [: [pagesize=10]+[pagenum=1] | : <submit_id>]"
+	
+	local contest_id, idx = parse_contest(args)
+	contest_id == -1 && cmd_usage_error(errmsg)
+	
+	local pagesize, pagenum = nothing, nothing
+	local m = nothing
+	if idx == length(args)
+		pagesize = 10
+		pagenum = 1
+	elseif (m = match(r"^(\d*)[+](\d*)$", args[idx+1])) !== nothing
+		try
+			pagesize = m[1] != "" ? parse(Int, m[1]) : 10
+			pagenum = m[2] != "" ? parse(Int, m[2]) : 1
+		catch e
+			cmd_usage_error(errmsg)
+		end
+	elseif match(r"^\d+$", args[idx+1]) !== nothing
+		# results for submit
+		local submit_id = parse(Int, args[idx+1])
+		@show submit_id
+		error("Unimplemented!")
+		# TODO: per-submit results api
+		return
+	else
+		cmd_usage_error(errmsg)
+	end
+	
+	# results for contest
+	login()
+	local results, pagecount = get_contest_results(client, contest_id, pagesize=pagesize, pagenum=pagenum)
+	local maxcodelen = maximum(r -> r.problem_code |> length, results) + 2
+	
+	println(magenta("Results for page ") * cyan(pagenum) * magenta(" out of ") * cyan(pagecount) * magenta(':'))
+	println()
+	
+	for res in results
+		local id = rpad(res.id, 8)
+		local pcode = rpad('[' * res.problem_code * ']', maxcodelen)
+		local datetime = format(res.datetime, "yyyy-mm-dd HH:MM:SS")
+		local status = res.status
+		local fn = identity
+		status == "OK" && (fn = green)
+		status in ["ANS", "RTE", "TLE", "TL"] && (fn = red)
+		status == "QUE" && (fn = yellow)
+		status in ["CME", "EXT"] && (fn = blue)
+		println(blue(id) * ' ' * cyan(pcode) * ' ' * datetime * ' ' * fn(status))
+	end
+end
+
 function submit_cmd(args:: AbstractVector{String})
 	local errmsg = "submit <contest> : <problem> : <filepath>"
-	login()
 	
 	local contest_id, idx = parse_contest(args)
 	(contest_id == -1 || idx > length(args)) && cmd_usage_error(errmsg)
@@ -244,6 +299,7 @@ function submit_cmd(args:: AbstractVector{String})
 	local filepath = args[idx+1]
 	!isfile(filepath) && submit_file_not_found_error(filepath)
 	
+	login()
 	make_submit(client, contest_id, problem_id, filepath)
 	
 	println("Submitted $filepath." |> green)
@@ -277,6 +333,7 @@ function command(idx:: Integer):: Symbol
 	startswith("contests", cmd) && return :contests
 	startswith("news", cmd) && return :news
 	startswith("problems", cmd) && return :problems
+	startswith("results", cmd) && return :results
 	startswith("submit", cmd) && return :submit
 	startswith("login", cmd) && return :login
 	startswith("forget", cmd) && return :forget
@@ -337,7 +394,7 @@ function get_login_credentials(; want_password:: Bool = true):: Tuple{String, Un
 	user, pass
 end
 
-# returns (contest id or -1 if no contest matched, possible next argument index)
+# returns (contest id or -1 if no contest matched, next ':' index or last index in args)
 function parse_contest(args:: AbstractVector{String}):: Tuple{Int, Integer}
 	if args |> isempty
 		return -1, 0

@@ -273,14 +273,15 @@ get_contest_results(
 	contest:: Contest;
 	pagesize:: Integer = 30,
 	pagenum:: Integer = 1
-):: Vector{Result} = get_contest_results(client, contest.id, pagesize=pagesize, pagenum=pagenum)
+):: Vector{Vector{Result}, Integer} = get_contest_results(client, contest.id, pagesize=pagesize, pagenum=pagenum)
 
+# returns ([results...], pagecount)
 function get_contest_results(
 	client:: Client,
 	contest_id:: Int;
 	pagesize:: Integer = 30,
 	pagenum:: Integer = 1
-):: Vector{Result}
+):: Tuple{Vector{Result}, Integer}
 	local resp = query_satori(
 		client,
 		:GET,
@@ -289,8 +290,10 @@ function get_contest_results(
 		nothing
 	)
 	
-	local tbody = parsehtml(String(resp.body)).root[2][1][2][1][1][1][2][1][2][1]
+	local div = parsehtml(String(resp.body)).root[2][1][2][1][1][1][2][1]
+	local tbody = div[2][1]
 	local results = Result[]
+	local pagecount = div[4].children |> length
 	
 	for tr in tbody.children[2:end]
 		local idstr = tr[1] |> text
@@ -306,7 +309,7 @@ function get_contest_results(
 		))
 	end
 	
-	results
+	results, pagecount
 end
 
 get_problem_html(client:: Client, problem:: Problem):: AbstractString =
