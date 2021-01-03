@@ -34,6 +34,7 @@ Commands: (can be shortened to any of their prefixes)
 * `contests` - Retrieve contests list
 * `news <contest>` - Retrieve contest news
 * `problems <contest>` - Retrieve contest problem list
+* `results <contest> [: [pagesize=10]+[pagenum=1] | : <submit_id>` - Get results for `<submit_id>` or `<contest>`
 * `submit <contest> : <problem> : <filepath>` - Submit the file under `<filepath>` to a problem
 * `profile` - See the user profile
 
