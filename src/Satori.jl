@@ -262,9 +262,23 @@ function get_contest_problems(client:: Client, contest_id:: Int):: Vector{Proble
 	local content_elem = parsehtml(String(resp.body)).root[2][1][2][1][1][1][2][1][1]
 	local problems = Problem[]
 	
-	for i in 1:div(length(content_elem.children), 2)
-		local series_name = text(content_elem[2i - 1][1])[1:end-1] |> strip
-		local tbody = content_elem[2i][1][1]
+	for i in 1:2:length(content_elem.children)
+		local nodiv = tag(content_elem[i+1]) != :div
+		
+		local series_name = nothing
+		if nodiv
+			series_name = text(content_elem[i])
+		else
+			series_name = text(content_elem[i][1])[1:end-1] |> strip
+		end
+		
+		local tbody = nothing
+		if nodiv
+			tbody = content_elem[i+1][1]
+		else
+			tbody = content_elem[i+1][1][1]
+		end
+		
 		for tr in tbody.children[2:end]
 			local idstr = match(r"/contest/\d+/problems/(\d+)", tr[2][1].attributes["href"])[1]
 			local code = tr[1] |> text

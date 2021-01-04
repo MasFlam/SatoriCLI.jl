@@ -228,9 +228,11 @@ function problems_cmd(args:: AbstractVector{String})
 	local prev_series_name = nothing
 	for prob in problems
 		if prob.series_name != prev_series_name
-			println(prob.series_name |> magenta)
-			println('=' ^ length(prob.series_name) |> magenta)
-			println()
+			if prob.series_name != ""
+				println(prob.series_name |> magenta)
+				println('=' ^ length(prob.series_name) |> magenta)
+				println()
+			end
 			prev_series_name = prob.series_name
 		end
 		local id = rpad(prob.id, 8)
