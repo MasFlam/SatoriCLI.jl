@@ -21,7 +21,7 @@ export Client,
 
 import HTTP, Gumbo
 using HTTP: Cookie
-using Gumbo: parsehtml, text
+using Gumbo: parsehtml, tag, text
 using URIs: escapeuri
 using Dates: DateTime, @dateformat_str
 
@@ -37,6 +37,7 @@ struct Contest
 	id:: Int
 	name:: AbstractString
 	description:: AbstractString
+	managed:: Bool
 	joined:: Bool
 	pending:: Bool
 end
@@ -162,25 +163,53 @@ function get_contests(client:: Client):: Vector{Contest}
 	)
 	
 	local content_elem = parsehtml(String(resp.body)).root[2][1][2][1][1][1][2][1]
-	local joined_elem = content_elem[2][1]
-	local other_elem = content_elem[5][1]
+	
+	local managed_elem = nothing
+	local joined_elem = nothing
+	local other_elem = nothing
+	
+	for i in 1:3:length(content_elem.children)
+		tag(content_elem[i]) == :hr && break
+		local s = text(content_elem[i])
+		if s == "Managed contests:"
+			managed_elem = content_elem[i+1][1]
+		elseif s == "Joined contests:"
+			joined_elem = content_elem[i+1][1]
+		elseif s == "Other contests:"
+			other_elem = content_elem[i+1][1]
+		end
+	end
+	
 	local contests = Contest[]
 	
-	for tr in joined_elem.children[2:end]
+	managed_elem !== nothing && for tr in managed_elem.children[2:end]
 		push!(contests, Contest(
 			parse(Int, match(r"/contest/(\d+)", tr[1][1].attributes["href"])[1]),
 			tr[1] |> text,
 			tr[2] |> text,
 			true,
-			tr[3].children |> !isempty
+			false,
+			false
 		))
 	end
 	
-	for tr in other_elem.children[2:end]
+	joined_elem !== nothing && for tr in joined_elem.children[2:end]
 		push!(contests, Contest(
 			parse(Int, match(r"/contest/(\d+)", tr[1][1].attributes["href"])[1]),
 			tr[1] |> text,
 			tr[2] |> text,
+			false,
+			true,
+			tr[3].children |> !isempty
+		))
+	end
+	
+	other_elem !== nothing && for tr in other_elem.children[2:end]
+		push!(contests, Contest(
+			parse(Int, match(r"/contest/(\d+)", tr[1][1].attributes["href"])[1]),
+			tr[1] |> text,
+			tr[2] |> text,
+			false,
 			false,
 			false
 		))

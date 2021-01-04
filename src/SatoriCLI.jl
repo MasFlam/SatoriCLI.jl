@@ -133,7 +133,7 @@ function help_cmd(args:: AbstractVector{String})
 	println("    " * cyan("version") * " - Get SatoriCLI version")
 	println("    " * cyan("login") * " - Just log in")
 	println("    " * cyan("forget") * " - Forget the remembered login credentials")
-	println("    " * cyan("contests") * " - Get contest list")
+	println("    " * cyan("contests [all|managed|joined|pending|other]") * " - Get contest list")
 	println("    " * cyan("news <contest>") * " - Get news for " * cyan("<contest>"))
 	println("    " * cyan("problems <contest>") * " - Get list of problems in " * cyan("<contest>"))
 	println("    " * cyan("results <contest> [: [pagesize=10]+[pagenum=1] | : <submit_id>]") * " - Get results for " * cyan("<submit_id>") * " or " * cyan("<contest>"))
@@ -173,6 +173,8 @@ function contests_cmd(args:: AbstractVector{String})
 	
 	if args |> isempty || args[1] == "all"
 		# do nothing
+	elseif args[1] == "managed"
+		filter!(c -> c.managed, contests)
 	elseif args[1] == "joined"
 		filter!(c -> c.joined, contests)
 	elseif args[1] == "pending"
@@ -180,7 +182,7 @@ function contests_cmd(args:: AbstractVector{String})
 	elseif args[1] == "other"
 		filter!(c -> !c.joined, contests)
 	else
-		cmd_usage_error("contests (joined|pending|other)")
+		cmd_usage_error("contests [all|managed|joined|pending|other]")
 	end
 	
 	for con in contests
@@ -191,7 +193,9 @@ function contests_cmd(args:: AbstractVector{String})
 		print(' ')
 		print(name |> cyan)
 		desc |> !isempty && print("  -  $desc")
-		if con.pending
+		if con.managed
+			print("  (managed)" |> blue)
+		elseif con.pending
 			print("  (pending)" |> yellow)
 		elseif con.joined
 			print("  (joined)" |> green)
@@ -497,9 +501,10 @@ function get_cached_contests():: Vector{Contest}
 					local name = readline(io)
 					local desc = readline(io)
 					local status = readline(io)
+					local managed = status == "managed"
 					local pending = status == "pending"
 					local joined = status == "joined" || pending
-					push!(contests, Contest(id, name, desc, joined, pending))
+					push!(contests, Contest(id, name, desc, managed, joined, pending))
 					readline(io) # consume = = = = =
 				end
 			end
@@ -517,7 +522,9 @@ function get_cached_contests():: Vector{Contest}
 			println(io, con.id)
 			println(io, con.name)
 			println(io, con.description)
-			if con.pending
+			if con.managed
+				println(io, "managed")
+			elseif con.pending
 				println(io, "pending")
 			elseif con.joined
 				println(io, "joined")

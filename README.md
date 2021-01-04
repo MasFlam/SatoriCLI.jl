@@ -31,7 +31,7 @@ Commands: (can be shortened to any of their prefixes)
 * `version` - Get SatoriCLI version
 * `login` - Just prompt for the login credentials and see if they work
 * `forget` - Forget the saved login credentials
-* `contests` - Retrieve contests list
+* `contests [all|managed|joined|pending|other]` - Retrieve contests list
 * `news <contest>` - Retrieve contest news
 * `problems <contest>` - Retrieve contest problem list
 * `results <contest> [: [pagesize=10]+[pagenum=1] | : <submit_id>]` - Get results for `<submit_id>` or `<contest>`
