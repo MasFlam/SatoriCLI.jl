@@ -233,7 +233,10 @@ function get_contest_news(client:: Client, contest_id:: Int):: Vector{ContestNew
 	local content_elem = parsehtml(String(resp.body)).root[2][1][2][1][1][1][2][1]
 	local contest_news = ContestNews[]
 	
-	for news_elem in content_elem.children
+	# There's a link for adding news at the top if you have such permissions
+	local elems = isempty(content_elem.children) || tag(content_elem[1]) != :a ? contest_news.children : contest_news.children[3:end]
+	
+	for news_elem in elems
 		local header = news_elem[1][1][1]
 		local title = header[1][1] |> text
 		local datetime = DateTime(header[2][1] |> text, dateformat"y-m-d, H:M:S")
